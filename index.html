@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BeatBuddy</title>
+<meta name="application-name" content="BeatBuddy">
+<meta name="apple-mobile-web-app-title" content="BeatBuddy">
+<meta name="theme-color" content="#006269">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #F6F3EC;
+    --surface: #FFFFFF;
+    --line: #E4DFD2;
+    --ink: #1F1C16;
+    --ink-soft: #6B6345;
+    --ink-muted: #8C8672;
+    --accent: #006269;
+    --accent-ink: #FFFFFF;
+    --flash: rgba(0, 98, 105, 0.55);
+  }
+  [data-theme="dark"] {
+    --bg: #16140F;
+    --surface: #211E17;
+    --line: #34301F;
+    --ink: #F3EFE4;
+    --ink-soft: #B8AF97;
+    --ink-muted: #837B65;
+    --accent: #2FA6AE;
+    --accent-ink: #052426;
+    --flash: rgba(47, 166, 174, 0.6);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none; user-select: none;
+    transition: background 0.2s ease;
+  }
+  #flash-layer {
+    position: fixed; inset: 0; pointer-events: none;
+    background: var(--flash); opacity: 0; z-index: 50;
+  }
+  .flash-hit { animation: flashPulse 90ms ease-out; }
+  @keyframes flashPulse {
+    0% { opacity: 0.95; }
+    100% { opacity: 0; }
+  }
+  .app {
+    max-width: 420px; margin: 0 auto;
+    min-height: 100dvh; display: flex; flex-direction: column;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 2px 20px;
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .brand-mark {
+    font-family: "Courier New", monospace; font-weight: 700; font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+  .brand-sub { font-size: 12px; color: var(--ink-muted); letter-spacing: 0.3px; }
+  .theme-toggle {
+    width: 38px; height: 38px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink-soft); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; flex-shrink: 0;
+  }
+  .header-actions {
+    position: relative; display: flex; gap: 8px;
+  }
+  .settings-panel {
+    position: absolute; top: 46px; right: 0;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 6px 16px;
+    min-width: 190px; box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+    z-index: 60; display: none;
+  }
+  .settings-panel.open { display: block; }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; font-size: 15px; color: var(--ink);
+    border-bottom: 1px solid var(--line);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .switch {
+    position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-track {
+    position: absolute; inset: 0; background: var(--line);
+    border-radius: 24px; cursor: pointer; transition: background 0.15s ease;
+  }
+  .slider-track::before {
+    content: ""; position: absolute; height: 18px; width: 18px;
+    left: 3px; top: 3px; background: #FFFFFF; border-radius: 50%;
+    transition: transform 0.15s ease;
+  }
+  .switch input:checked + .slider-track { background: var(--accent); }
+  .switch input:checked + .slider-track::before { transform: translateX(18px); }
+  .readout {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 18px; padding: 28px 20px 22px; text-align: center;
+    margin-bottom: 16px;
+  }
+  .readout-label {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--ink-muted); margin-bottom: 6px;
+  }
+  .readout-value {
+    font-family: "Courier New", monospace; font-weight: 700;
+    font-size: 72px; line-height: 1; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    width: 100%; text-align: center; background: transparent;
+    border: none; border-bottom: 2px solid transparent;
+    padding: 0 0 4px; -moz-appearance: textfield;
+  }
+  .readout-value::placeholder { color: var(--ink); opacity: 1; }
+  .readout-value:focus {
+    outline: none; border-bottom-color: var(--accent);
+  }
+  .readout-value::-webkit-outer-spin-button,
+  .readout-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .readout-meta {
+    font-size: 13px; color: var(--ink-soft); margin-top: 10px;
+  }
+  .tap-zone {
+    flex: 1; min-height: 220px;
+    border-radius: 22px; border: 1px solid var(--line);
+    background: var(--surface);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; cursor: pointer;
+    transition: transform 60ms ease, background 120ms ease;
+  }
+  .tap-zone:active { transform: scale(0.985); }
+  .tap-zone.running {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    border-color: var(--accent);
+  }
+  .tap-zone-title {
+    font-size: 22px; font-weight: 600; color: var(--ink);
+  }
+  .tap-zone-hint {
+    font-size: 13px; color: var(--ink-muted); text-align: center; padding: 0 30px;
+  }
+  .controls {
+    display: flex; gap: 10px; margin-top: 16px;
+  }
+  button.action {
+    flex: 1; height: 52px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 600;
+    cursor: pointer;
+  }
+  button.action:disabled {
+    opacity: 0.4; cursor: default;
+  }
+  button.action.primary {
+    background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+  }
+  select.sound-select {
+    flex: 1.4; height: 52px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 600;
+    padding: 0 12px; cursor: pointer;
+  }
+  .pulse-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+    opacity: 0; transition: opacity 80ms ease;
+  }
+  .pulse-dot.on { opacity: 1; }
+  .dancer-wrap {
+    width: 76px; height: 96px; margin-bottom: 2px;
+  }
+  .dancer-wrap .limb {
+    stroke: var(--ink-soft); stroke-width: 4.5; stroke-linecap: round;
+    transition: transform 100ms ease-out;
+  }
+  .dancer-wrap .torso {
+    stroke: var(--ink-soft); stroke-width: 4.5; stroke-linecap: round;
+  }
+  .dancer-wrap .head {
+    fill: var(--ink-soft);
+  }
+  @keyframes moveGroove {
+    0% { transform: translateY(0); }
+    35% { transform: translateY(-11px); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes moveJump {
+    0% { transform: translateY(0); }
+    35% { transform: translateY(-24px); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes moveShuffleL {
+    0% { transform: translate(0,0); }
+    40% { transform: translate(-18px,-6px); }
+    100% { transform: translate(0,0); }
+  }
+  @keyframes moveShuffleR {
+    0% { transform: translate(0,0); }
+    40% { transform: translate(18px,-6px); }
+    100% { transform: translate(0,0); }
+  }
+  @keyframes moveWave {
+    0% { transform: translateY(0) rotate(0deg); }
+    30% { transform: translateY(-9px) rotate(-6deg); }
+    70% { transform: translateY(-9px) rotate(6deg); }
+    100% { transform: translateY(0) rotate(0deg); }
+  }
+  @keyframes moveKick {
+    0% { transform: translateY(0); }
+    30% { transform: translateY(-16px); }
+    100% { transform: translateY(0); }
+  }
+  .dancer-wrap.move-groove { animation: moveGroove 260ms ease-out; }
+  .dancer-wrap.move-jump { animation: moveJump 260ms ease-out; }
+  .dancer-wrap.move-shuffle-l { animation: moveShuffleL 260ms ease-out; }
+  .dancer-wrap.move-shuffle-r { animation: moveShuffleR 260ms ease-out; }
+  .dancer-wrap.move-wave { animation: moveWave 260ms ease-out; }
+  .dancer-wrap.move-kick { animation: moveKick 260ms ease-out; }
+</style>
+</head>
+<body data-theme="light">
+<div id="flash-layer"></div>
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="brand-mark">BEATBUDDY</span>
+      <span class="brand-sub">Tempo per touch</span>
+    </div>
+    <div class="header-actions" id="header-actions">
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">◐</button>
+      <button class="theme-toggle" id="settings-btn" aria-label="Open settings">⚙</button>
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-row">
+          <span>Flash</span>
+          <label class="switch">
+            <input type="checkbox" id="flash-toggle" checked>
+            <span class="slider-track"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <span>Buzz</span>
+          <label class="switch">
+            <input type="checkbox" id="buzz-toggle" checked>
+            <span class="slider-track"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <span>Sound</span>
+          <label class="switch">
+            <input type="checkbox" id="sound-toggle" checked>
+            <span class="slider-track"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="readout">
+    <div class="readout-label">Average</div>
+    <input class="readout-value" id="bpm-value" inputmode="decimal" autocomplete="off" placeholder="--" value="">
+    <div class="readout-meta" id="bpm-meta">0 taps</div>
+  </div>
+
+  <div class="tap-zone" id="tap-zone">
+    <svg class="dancer-wrap" id="dancer-wrap" viewBox="0 0 60 90">
+      <line class="limb" id="leg-l" x1="30" y1="55" x2="18" y2="80" />
+      <line class="limb" id="leg-r" x1="30" y1="55" x2="42" y2="80" />
+      <line class="torso" x1="30" y1="22" x2="30" y2="55" />
+      <line class="limb" id="arm-l" x1="30" y1="30" x2="15" y2="45" />
+      <line class="limb" id="arm-r" x1="30" y1="30" x2="45" y2="45" />
+      <circle class="head" cx="30" cy="14" r="8" />
+    </svg>
+    <div class="pulse-dot" id="pulse-dot"></div>
+    <div class="tap-zone-title" id="tap-title">Tap to start</div>
+  </div>
+
+  <div class="controls" id="tune-row">
+    <button class="action" id="bpm-minus" disabled>−</button>
+    <button class="action" id="bpm-plus" disabled>+</button>
+  </div>
+
+  <div class="controls">
+    <button class="action" id="reset-btn">Reset</button>
+    <button class="action primary" id="start-stop-btn" disabled>Start</button>
+    <select class="sound-select" id="sound-select" aria-label="Metronome sound">
+      <option value="beep">Beep</option>
+      <option value="woodblock">Block</option>
+      <option value="kick">Kick</option>
+      <option value="clap">Clap</option>
+      <option value="fart">Fart</option>
+    </select>
+  </div>
+</div>
+
+<script>
+  const themeToggle = document.getElementById('theme-toggle');
+  const body = document.body;
+  themeToggle.addEventListener('click', () => {
+    const next = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    body.setAttribute('data-theme', next);
+    themeToggle.textContent = next === 'dark' ? '◑' : '◐';
+  });
+
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsPanel = document.getElementById('settings-panel');
+  const flashToggle = document.getElementById('flash-toggle');
+  const buzzToggle = document.getElementById('buzz-toggle');
+  const soundToggle = document.getElementById('sound-toggle');
+
+  let flashEnabled = true;
+  let buzzEnabled = true;
+  let soundEnabled = true;
+
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    settingsPanel.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+      settingsPanel.classList.remove('open');
+    }
+  });
+
+  settingsPanel.addEventListener('click', (e) => e.stopPropagation());
+
+  flashToggle.addEventListener('change', () => { flashEnabled = flashToggle.checked; });
+  buzzToggle.addEventListener('change', () => { buzzEnabled = buzzToggle.checked; });
+  soundToggle.addEventListener('change', () => { soundEnabled = soundToggle.checked; });
+
+  const flashLayer = document.getElementById('flash-layer');
+  const tapZone = document.getElementById('tap-zone');
+  const tapTitle = document.getElementById('tap-title');
+  const bpmValue = document.getElementById('bpm-value');
+  const bpmMeta = document.getElementById('bpm-meta');
+  const resetBtn = document.getElementById('reset-btn');
+  const startStopBtn = document.getElementById('start-stop-btn');
+  const soundSelect = document.getElementById('sound-select');
+  const bpmMinusBtn = document.getElementById('bpm-minus');
+  const bpmPlusBtn = document.getElementById('bpm-plus');
+  const pulseDot = document.getElementById('pulse-dot');
+  const dancerWrap = document.getElementById('dancer-wrap');
+  const armL = document.getElementById('arm-l');
+  const armR = document.getElementById('arm-r');
+  const legL = document.getElementById('leg-l');
+  const legR = document.getElementById('leg-r');
+  const danceStyles = ['groove', 'shuffle', 'jump', 'wave', 'kick'];
+  let danceStyleIndex = 0;
+  let danceStyle = danceStyles[danceStyleIndex];
+  let dancePose = false;
+
+  let taps = [];
+  let avgIntervalMs = null;
+  let currentBpm = null;
+  let pulseTimer = null;
+  let pulseRunning = false;
+  let autoStartTimer = null;
+  let audioCtx = null;
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playBeep(ctx) {
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1000;
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.09);
+  }
+
+  function playWoodblock(ctx) {
+    const t = ctx.currentTime;
+
+    // Sharp attack transient — the "knock" of the strike
+    const clickSize = Math.max(1, Math.floor(ctx.sampleRate * 0.006));
+    const clickBuffer = ctx.createBuffer(1, clickSize, ctx.sampleRate);
+    const clickData = clickBuffer.getChannelData(0);
+    for (let i = 0; i < clickSize; i++) clickData[i] = Math.random() * 2 - 1;
+    const click = ctx.createBufferSource();
+    click.buffer = clickBuffer;
+    const clickFilter = ctx.createBiquadFilter();
+    clickFilter.type = 'highpass';
+    clickFilter.frequency.value = 1800;
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0.22, t);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.008);
+    click.connect(clickFilter).connect(clickGain).connect(ctx.destination);
+    click.start(t);
+    click.stop(t + 0.01);
+
+    // Resonant body — deeper and rounder than a raw square wave
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(480, t);
+    osc.frequency.exponentialRampToValueAtTime(280, t + 0.09);
+    const bodyFilter = ctx.createBiquadFilter();
+    bodyFilter.type = 'bandpass';
+    bodyFilter.frequency.value = 480;
+    bodyFilter.Q.value = 3.5;
+    const bodyGain = ctx.createGain();
+    bodyGain.gain.setValueAtTime(0.46, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    osc.connect(bodyFilter).connect(bodyGain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.11);
+  }
+
+  function playKick(ctx) {
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.15);
+    gain.gain.setValueAtTime(0.9, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.22);
+  }
+
+  function playFart(ctx) {
+    const t = ctx.currentTime;
+    const duration = 0.5;
+
+    // Buzzy tone body with a wobbly pitch drop
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(95, t);
+    osc.frequency.exponentialRampToValueAtTime(48, t + duration);
+
+    const pitchWobble = ctx.createOscillator();
+    pitchWobble.type = 'sine';
+    pitchWobble.frequency.value = 14;
+    const pitchWobbleGain = ctx.createGain();
+    pitchWobbleGain.gain.value = 8;
+    pitchWobble.connect(pitchWobbleGain).connect(osc.frequency);
+
+    // Fast amplitude tremolo gives the "brrrt" buzzing texture
+    const tremolo = ctx.createOscillator();
+    tremolo.type = 'sine';
+    tremolo.frequency.setValueAtTime(48, t);
+    tremolo.frequency.exponentialRampToValueAtTime(22, t + duration);
+    const tremoloGain = ctx.createGain();
+    tremoloGain.gain.value = 0.5;
+    const tremoloOffset = ctx.createConstantSource();
+    tremoloOffset.offset.value = 0.5;
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0, t);
+    tremolo.connect(tremoloGain).connect(oscGain.gain);
+    tremoloOffset.connect(oscGain.gain);
+
+    // Noise layer adds rasp/grit on top of the tone
+    const bufferSize = Math.floor(ctx.sampleRate * duration);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 350;
+    noiseFilter.Q.value = 0.6;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.12;
+
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 950;
+
+    // Overall envelope: quick honk in, comedic tail out
+    const envelope = ctx.createGain();
+    envelope.gain.setValueAtTime(0.0001, t);
+    envelope.gain.exponentialRampToValueAtTime(0.55, t + 0.02);
+    envelope.gain.exponentialRampToValueAtTime(0.4, t + duration * 0.55);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+    osc.connect(oscGain);
+    oscGain.connect(lowpass);
+    noise.connect(noiseFilter).connect(noiseGain).connect(lowpass);
+    lowpass.connect(envelope).connect(ctx.destination);
+
+    osc.start(t); osc.stop(t + duration);
+    pitchWobble.start(t); pitchWobble.stop(t + duration);
+    tremolo.start(t); tremolo.stop(t + duration);
+    tremoloOffset.start(t); tremoloOffset.stop(t + duration);
+    noise.start(t); noise.stop(t + duration);
+  }
+
+  function playClap(ctx) {
+    const t = ctx.currentTime;
+    const burstCount = 4;
+    const spread = 0.008;
+    for (let i = 0; i < burstCount; i++) {
+      const startT = t + i * spread;
+      const bufferSize = Math.floor(ctx.sampleRate * 0.03);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let j = 0; j < bufferSize; j++) data[j] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1200;
+      filter.Q.value = 1.2;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.25, startT);
+      gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.03);
+      noise.connect(filter).connect(gain).connect(ctx.destination);
+      noise.start(startT);
+      noise.stop(startT + 0.03);
+    }
+    const tailStart = t + burstCount * spread;
+    const tailSize = Math.floor(ctx.sampleRate * 0.15);
+    const tailBuffer = ctx.createBuffer(1, tailSize, ctx.sampleRate);
+    const tailData = tailBuffer.getChannelData(0);
+    for (let j = 0; j < tailSize; j++) tailData[j] = Math.random() * 2 - 1;
+    const tailNoise = ctx.createBufferSource();
+    tailNoise.buffer = tailBuffer;
+    const tailFilter = ctx.createBiquadFilter();
+    tailFilter.type = 'bandpass';
+    tailFilter.frequency.value = 1000;
+    tailFilter.Q.value = 0.8;
+    const tailGain = ctx.createGain();
+    tailGain.gain.setValueAtTime(0.18, tailStart);
+    tailGain.gain.exponentialRampToValueAtTime(0.001, tailStart + 0.15);
+    tailNoise.connect(tailFilter).connect(tailGain).connect(ctx.destination);
+    tailNoise.start(tailStart);
+    tailNoise.stop(tailStart + 0.15);
+  }
+
+  function playSound() {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioCtx();
+      const kind = soundSelect.value;
+      if (kind === 'beep') playBeep(ctx);
+      else if (kind === 'woodblock') playWoodblock(ctx);
+      else if (kind === 'kick') playKick(ctx);
+      else if (kind === 'clap') playClap(ctx);
+      else if (kind === 'fart') playFart(ctx);
+    } catch (e) {}
+  }
+
+  function vibrate(ms) {
+    if (!buzzEnabled) return;
+    if (navigator.vibrate) navigator.vibrate(ms);
+  }
+
+  function flash() {
+    if (!flashEnabled) return;
+    flashLayer.classList.remove('flash-hit');
+    void flashLayer.offsetWidth;
+    flashLayer.classList.add('flash-hit');
+  }
+
+  function danceBeat() {
+    let animClass = 'move-jump';
+    dancePose = !dancePose;
+
+    if (danceStyle === 'groove') {
+      const armAngle = dancePose ? 55 : -55;
+      const legAngle = dancePose ? -28 : 28;
+      armL.setAttribute('transform', `rotate(${armAngle} 30 30)`);
+      armR.setAttribute('transform', `rotate(${-armAngle} 30 30)`);
+      legL.setAttribute('transform', `rotate(${legAngle} 30 55)`);
+      legR.setAttribute('transform', `rotate(${-legAngle} 30 55)`);
+      animClass = 'move-groove';
+    } else if (danceStyle === 'shuffle') {
+      const dir = dancePose ? 1 : -1;
+      armL.setAttribute('transform', `rotate(${30 * dir} 30 30)`);
+      armR.setAttribute('transform', `rotate(${30 * dir} 30 30)`);
+      legL.setAttribute('transform', `rotate(${22 * dir} 30 55)`);
+      legR.setAttribute('transform', `rotate(${22 * dir} 30 55)`);
+      animClass = dancePose ? 'move-shuffle-r' : 'move-shuffle-l';
+    } else if (danceStyle === 'jump') {
+      if (dancePose) {
+        armL.setAttribute('transform', 'rotate(165 30 30)');
+        armR.setAttribute('transform', 'rotate(-165 30 30)');
+        legL.setAttribute('transform', 'rotate(-30 30 55)');
+        legR.setAttribute('transform', 'rotate(30 30 55)');
+      } else {
+        armL.removeAttribute('transform');
+        armR.removeAttribute('transform');
+        legL.removeAttribute('transform');
+        legR.removeAttribute('transform');
+      }
+      animClass = 'move-jump';
+    } else if (danceStyle === 'wave') {
+      const dir = dancePose ? 1 : -1;
+      armL.setAttribute('transform', `rotate(${178 + 14 * dir} 30 30)`);
+      armR.setAttribute('transform', `rotate(${-178 - 14 * dir} 30 30)`);
+      legL.setAttribute('transform', `rotate(${8 * dir} 30 55)`);
+      legR.setAttribute('transform', `rotate(${8 * dir} 30 55)`);
+      animClass = 'move-wave';
+    } else if (danceStyle === 'kick') {
+      if (dancePose) {
+        legR.setAttribute('transform', 'rotate(65 30 55)');
+        legL.removeAttribute('transform');
+        armL.setAttribute('transform', 'rotate(-95 30 30)');
+        armR.removeAttribute('transform');
+      } else {
+        legL.setAttribute('transform', 'rotate(-65 30 55)');
+        legR.removeAttribute('transform');
+        armR.setAttribute('transform', 'rotate(95 30 30)');
+        armL.removeAttribute('transform');
+      }
+      animClass = 'move-kick';
+    }
+
+    dancerWrap.classList.remove('move-groove', 'move-jump', 'move-shuffle-l', 'move-shuffle-r', 'move-wave', 'move-kick');
+    void dancerWrap.offsetWidth;
+    dancerWrap.classList.add(animClass);
+  }
+
+  function fireBeat() {
+    flash();
+    vibrate(35);
+    playSound();
+    danceBeat();
+    pulseDot.classList.add('on');
+    setTimeout(() => pulseDot.classList.remove('on'), 90);
+  }
+
+  function updateReadout() {
+    const n = taps.length;
+    bpmMeta.textContent = n + (n === 1 ? ' tap' : ' taps');
+    if (n < 2) {
+      if (document.activeElement !== bpmValue) bpmValue.value = '';
+      avgIntervalMs = null;
+      currentBpm = null;
+      updateStartButtonState();
+      return;
+    }
+    const totalMs = taps[n - 1] - taps[0];
+    avgIntervalMs = totalMs / (n - 1);
+    currentBpm = Math.round((60000 / avgIntervalMs) * 10) / 10;
+    if (document.activeElement !== bpmValue) bpmValue.value = currentBpm.toFixed(1);
+    updateStartButtonState();
+  }
+
+  function updateStartButtonState() {
+    if (pulseRunning) {
+      startStopBtn.disabled = false;
+      startStopBtn.textContent = 'Stop';
+    } else {
+      startStopBtn.disabled = currentBpm == null;
+      startStopBtn.textContent = 'Start';
+    }
+  }
+
+  // Tapping keeps only the last few intervals, so a stray early tap or a
+  // slow drift in your rhythm doesn't permanently skew the average.
+  const TAP_WINDOW = 8;
+  const MIN_TAP_GAP = 120; // ignore accidental double-fires this close together
+
+  function registerTap() {
+    const now = performance.now();
+    if (taps.length > 0) {
+      const gap = now - taps[taps.length - 1];
+      if (gap < MIN_TAP_GAP) return;
+      const gapLimit = avgIntervalMs ? Math.max(2500, avgIntervalMs * 3.5) : 3000;
+      if (gap > gapLimit) taps = [];
+    }
+    taps.push(now);
+    if (taps.length > TAP_WINDOW) taps.shift();
+
+    fireBeat();
+    tapTitle.textContent = pulseRunning ? 'Pulse running' : 'Tap';
+    updateReadout();
+
+    // If the pulse is already running, retime the beat that's already
+    // pending instead of stopping anything — tapping live just nudges
+    // the tempo, the same way the +/- buttons do.
+    if (pulseRunning && pulseTimer && avgIntervalMs) {
+      clearTimeout(pulseTimer);
+      const elapsed = performance.now() - lastBeatTime;
+      const remaining = Math.max(0, avgIntervalMs - elapsed);
+      pulseTimer = setTimeout(() => {
+        fireBeat();
+        scheduleNextBeat();
+      }, remaining);
+    }
+
+    clearTimeout(autoStartTimer);
+    if (!pulseRunning && taps.length >= 2 && avgIntervalMs) {
+      // Schedule the next beat exactly one tapped interval after this tap.
+      // If you tap again before then, this gets cleared and rescheduled.
+      // If not, this fires right on the beat grid, so the pulse takes
+      // over automatically with no pause or glitch.
+      autoStartTimer = setTimeout(startPulse, avgIntervalMs);
+    }
+  }
+
+  let lastBeatTime = 0;
+
+  function scheduleNextBeat() {
+    lastBeatTime = performance.now();
+    pulseTimer = setTimeout(() => {
+      fireBeat();
+      scheduleNextBeat();
+    }, avgIntervalMs);
+  }
+
+  function startPulse() {
+    if (!avgIntervalMs || pulseRunning) return;
+    clearTimeout(autoStartTimer);
+    pulseRunning = true;
+    tapZone.classList.add('running');
+    tapTitle.textContent = 'Pulse running';
+    bpmMinusBtn.disabled = false;
+    bpmPlusBtn.disabled = false;
+    updateStartButtonState();
+    fireBeat();
+    scheduleNextBeat();
+  }
+
+  function pausePulse() {
+    pulseRunning = false;
+    clearTimeout(pulseTimer);
+    pulseTimer = null;
+    clearTimeout(autoStartTimer);
+    tapZone.classList.remove('running');
+    tapTitle.textContent = 'Tap to start';
+    bpmMinusBtn.disabled = true;
+    bpmPlusBtn.disabled = true;
+    updateStartButtonState();
+  }
+
+  function resetDancer() {
+    dancePose = false;
+    danceStyleIndex = (danceStyleIndex + 1) % danceStyles.length;
+    danceStyle = danceStyles[danceStyleIndex];
+    armL.removeAttribute('transform');
+    armR.removeAttribute('transform');
+    legL.removeAttribute('transform');
+    legR.removeAttribute('transform');
+    dancerWrap.classList.remove('move-groove', 'move-jump', 'move-shuffle-l', 'move-shuffle-r', 'move-wave', 'move-kick');
+  }
+
+  function resetAll() {
+    pausePulse();
+    taps = [];
+    avgIntervalMs = null;
+    currentBpm = null;
+    resetDancer();
+    tapTitle.textContent = 'Tap to start';
+    updateReadout();
+  }
+
+  function adjustBpm(delta) {
+    if (!pulseRunning || currentBpm == null) return;
+    currentBpm = Math.round((currentBpm + delta) * 10) / 10;
+    if (currentBpm < 20) currentBpm = 20;
+    if (currentBpm > 300) currentBpm = 300;
+    avgIntervalMs = 60000 / currentBpm;
+    bpmValue.value = currentBpm.toFixed(1);
+
+    // Re-time the beat that's already pending so it lands according to
+    // the new tempo, counting time already elapsed since the last beat.
+    // No restart, no pause — the very next beat reflects the change.
+    if (pulseTimer) {
+      clearTimeout(pulseTimer);
+      const elapsed = performance.now() - lastBeatTime;
+      const remaining = Math.max(0, avgIntervalMs - elapsed);
+      pulseTimer = setTimeout(() => {
+        fireBeat();
+        scheduleNextBeat();
+      }, remaining);
+    }
+  }
+
+  function commitManualBpm() {
+    const raw = parseFloat(bpmValue.value.replace(',', '.'));
+    if (isNaN(raw)) {
+      bpmValue.value = currentBpm != null ? currentBpm.toFixed(1) : '';
+      return;
+    }
+    let bpm = Math.round(raw * 10) / 10;
+    bpm = Math.min(300, Math.max(20, bpm));
+    taps = [];
+    currentBpm = bpm;
+    avgIntervalMs = 60000 / bpm;
+    bpmValue.value = bpm.toFixed(1);
+    bpmMeta.textContent = 'manual';
+    updateStartButtonState();
+
+    if (pulseRunning && pulseTimer) {
+      clearTimeout(pulseTimer);
+      const elapsed = performance.now() - lastBeatTime;
+      const remaining = Math.max(0, avgIntervalMs - elapsed);
+      pulseTimer = setTimeout(() => {
+        fireBeat();
+        scheduleNextBeat();
+      }, remaining);
+    }
+  }
+
+  bpmValue.addEventListener('focus', () => bpmValue.select());
+  bpmValue.addEventListener('blur', commitManualBpm);
+  bpmValue.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') bpmValue.blur();
+  });
+  bpmValue.addEventListener('click', (e) => e.stopPropagation());
+
+  bpmMinusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    adjustBpm(-0.1);
+  });
+
+  bpmPlusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    adjustBpm(0.1);
+  });
+
+  tapZone.addEventListener('click', () => {
+    if (pulseRunning) {
+      pausePulse();
+    } else {
+      registerTap();
+    }
+  });
+
+  startStopBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (pulseRunning) {
+      pausePulse();
+    } else {
+      startPulse();
+    }
+  });
+
+  resetBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    resetAll();
+  });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
