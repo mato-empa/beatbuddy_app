@@ -12,6 +12,12 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  document.documentElement.setAttribute(
+    'data-theme',
+    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  );
+</script>
 <style>
   :root {
     --bg: #F6F3EC;
@@ -262,10 +268,6 @@
             <span class="slider-track"></span>
           </label>
         </div>
-        <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
-          <button class="action" id="test-buzz-btn" style="height: 40px;">Test buzz</button>
-          <div id="buzz-test-status" style="font-size: 12px; color: var(--ink-muted);"></div>
-        </div>
       </div>
     </div>
   </header>
@@ -310,10 +312,27 @@
 <script>
   const themeToggle = document.getElementById('theme-toggle');
   const body = document.body;
+  const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  let themeManuallySet = false;
+
+  function applyTheme(theme) {
+    body.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '◑' : '◐';
+  }
+
+  // Start from the phone's system setting.
+  applyTheme(darkMediaQuery.matches ? 'dark' : 'light');
+
+  // Keep following the system setting live, but only until the user
+  // picks a theme manually — after that, their choice wins.
+  darkMediaQuery.addEventListener('change', (e) => {
+    if (!themeManuallySet) applyTheme(e.matches ? 'dark' : 'light');
+  });
+
   themeToggle.addEventListener('click', () => {
+    themeManuallySet = true;
     const next = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    body.setAttribute('data-theme', next);
-    themeToggle.textContent = next === 'dark' ? '◑' : '◐';
+    applyTheme(next);
   });
 
   const settingsBtn = document.getElementById('settings-btn');
@@ -342,18 +361,6 @@
   flashToggle.addEventListener('change', () => { flashEnabled = flashToggle.checked; });
   buzzToggle.addEventListener('change', () => { buzzEnabled = buzzToggle.checked; });
   soundToggle.addEventListener('change', () => { soundEnabled = soundToggle.checked; });
-
-  const testBuzzBtn = document.getElementById('test-buzz-btn');
-  const buzzTestStatus = document.getElementById('buzz-test-status');
-  testBuzzBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!('vibrate' in navigator)) {
-      buzzTestStatus.textContent = 'navigator.vibrate is not available in this browser.';
-      return;
-    }
-    const result = navigator.vibrate(200);
-    buzzTestStatus.textContent = 'vibrate() exists, called it, returned: ' + result;
-  });
 
   const flashLayer = document.getElementById('flash-layer');
   const tapZone = document.getElementById('tap-zone');
