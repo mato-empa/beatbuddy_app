@@ -244,7 +244,7 @@
   .dancer-wrap.move-twerk { animation: moveTwerk 300ms ease-out; }
 </style>
 </head>
-<body data-theme="light">
+<body>
 <div id="flash-layer"></div>
 <div class="app">
   <header>
@@ -320,17 +320,18 @@
 
 <script>
   const themeToggle = document.getElementById('theme-toggle');
-  const body = document.body;
+  const htmlEl = document.documentElement;
   const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   let themeManuallySet = false;
 
   function applyTheme(theme) {
-    body.setAttribute('data-theme', theme);
+    htmlEl.setAttribute('data-theme', theme);
     themeToggle.textContent = theme === 'dark' ? '◑' : '◐';
   }
 
-  // Start from the phone's system setting.
-  applyTheme(darkMediaQuery.matches ? 'dark' : 'light');
+  // Sync the toggle icon with whatever the anti-flash script in <head>
+  // already applied to <html> before this script ran.
+  applyTheme(htmlEl.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
   // Keep following the system setting live, but only until the user
   // picks a theme manually — after that, their choice wins.
@@ -340,7 +341,7 @@
 
   themeToggle.addEventListener('click', () => {
     themeManuallySet = true;
-    const next = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    const next = htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     applyTheme(next);
   });
 
