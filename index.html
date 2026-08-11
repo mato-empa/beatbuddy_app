@@ -227,12 +227,21 @@
     30% { transform: translateY(-16px); }
     100% { transform: translateY(0); }
   }
+  @keyframes moveTwerk {
+    0% { transform: translateY(0); }
+    20% { transform: translateY(-7px); }
+    40% { transform: translateY(2px); }
+    60% { transform: translateY(-9px); }
+    80% { transform: translateY(2px); }
+    100% { transform: translateY(0); }
+  }
   .dancer-wrap.move-groove { animation: moveGroove 260ms ease-out; }
   .dancer-wrap.move-jump { animation: moveJump 260ms ease-out; }
   .dancer-wrap.move-shuffle-l { animation: moveShuffleL 260ms ease-out; }
   .dancer-wrap.move-shuffle-r { animation: moveShuffleR 260ms ease-out; }
   .dancer-wrap.move-wave { animation: moveWave 260ms ease-out; }
   .dancer-wrap.move-kick { animation: moveKick 260ms ease-out; }
+  .dancer-wrap.move-twerk { animation: moveTwerk 300ms ease-out; }
 </style>
 </head>
 <body data-theme="light">
@@ -378,7 +387,7 @@
   const armR = document.getElementById('arm-r');
   const legL = document.getElementById('leg-l');
   const legR = document.getElementById('leg-r');
-  const danceStyles = ['groove', 'shuffle', 'jump', 'wave', 'kick'];
+  const danceStyles = ['groove', 'shuffle', 'jump', 'wave', 'kick', 'twerk'];
   let danceStyleIndex = 0;
   let danceStyle = danceStyles[danceStyleIndex];
   let dancePose = false;
@@ -650,9 +659,16 @@
         armL.removeAttribute('transform');
       }
       animClass = 'move-kick';
+    } else if (danceStyle === 'twerk') {
+      const wobble = dancePose ? 6 : -6;
+      armL.setAttribute('transform', 'rotate(100 30 30)');
+      armR.setAttribute('transform', 'rotate(-100 30 30)');
+      legL.setAttribute('transform', `rotate(${-42 + wobble} 30 55)`);
+      legR.setAttribute('transform', `rotate(${42 + wobble} 30 55)`);
+      animClass = 'move-twerk';
     }
 
-    dancerWrap.classList.remove('move-groove', 'move-jump', 'move-shuffle-l', 'move-shuffle-r', 'move-wave', 'move-kick');
+    dancerWrap.classList.remove('move-groove', 'move-jump', 'move-shuffle-l', 'move-shuffle-r', 'move-wave', 'move-kick', 'move-twerk');
     void dancerWrap.offsetWidth;
     dancerWrap.classList.add(animClass);
   }
@@ -723,6 +739,9 @@
       const gapLimit = avgIntervalMs ? Math.max(2500, avgIntervalMs * 3.5) : 3000;
       if (gap > gapLimit) taps = [];
     }
+    const startingNewSequence = taps.length === 0;
+    if (startingNewSequence) advanceDanceStyle();
+
     taps.push(now);
     if (taps.length > TAP_WINDOW) taps.shift();
 
@@ -788,15 +807,18 @@
     updateStartButtonState();
   }
 
-  function resetDancer() {
-    dancePose = false;
+  function advanceDanceStyle() {
     danceStyleIndex = (danceStyleIndex + 1) % danceStyles.length;
     danceStyle = danceStyles[danceStyleIndex];
+  }
+
+  function resetDancer() {
+    dancePose = false;
     armL.removeAttribute('transform');
     armR.removeAttribute('transform');
     legL.removeAttribute('transform');
     legR.removeAttribute('transform');
-    dancerWrap.classList.remove('move-groove', 'move-jump', 'move-shuffle-l', 'move-shuffle-r', 'move-wave', 'move-kick');
+    dancerWrap.classList.remove('move-groove', 'move-jump', 'move-shuffle-l', 'move-shuffle-r', 'move-wave', 'move-kick', 'move-twerk');
   }
 
   function resetAll() {
