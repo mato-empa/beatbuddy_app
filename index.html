@@ -140,6 +140,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 10px; cursor: pointer;
     transition: transform 60ms ease, background 120ms ease;
+    touch-action: manipulation;
   }
   .tap-zone:active { transform: scale(0.985); }
   .tap-zone.running {
@@ -658,6 +659,24 @@
     setTimeout(() => pulseDot.classList.remove('on'), 90);
   }
 
+  function robustAverageInterval(tapArray) {
+    const intervals = [];
+    for (let i = 1; i < tapArray.length; i++) intervals.push(tapArray[i] - tapArray[i - 1]);
+    if (intervals.length === 0) return null;
+    if (intervals.length === 1) return intervals[0];
+
+    const sorted = [...intervals].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+
+    // Drop any interval far from the median (a missed tap, a double-fire that
+    // slipped through, an accidental early/late hit) before averaging, so one
+    // bad tap doesn't drag the whole reading off.
+    const filtered = intervals.filter((iv) => iv >= median * 0.6 && iv <= median * 1.6);
+    const usable = filtered.length ? filtered : sorted;
+    return usable.reduce((sum, iv) => sum + iv, 0) / usable.length;
+  }
+
   function updateReadout() {
     const n = taps.length;
     bpmMeta.textContent = n + (n === 1 ? ' tap' : ' taps');
@@ -668,8 +687,7 @@
       updateStartButtonState();
       return;
     }
-    const totalMs = taps[n - 1] - taps[0];
-    avgIntervalMs = totalMs / (n - 1);
+    avgIntervalMs = robustAverageInterval(taps);
     currentBpm = Math.round((60000 / avgIntervalMs) * 10) / 10;
     if (document.activeElement !== bpmValue) bpmValue.value = currentBpm.toFixed(1);
     updateStartButtonState();
@@ -687,7 +705,7 @@
 
   // Tapping keeps only the last few intervals, so a stray early tap or a
   // slow drift in your rhythm doesn't permanently skew the average.
-  const TAP_WINDOW = 8;
+  const TAP_WINDOW = 10;
   const MIN_TAP_GAP = 120; // ignore accidental double-fires this close together
 
   function registerTap() {
@@ -849,7 +867,8 @@
     adjustBpm(0.1);
   });
 
-  tapZone.addEventListener('click', () => {
+  tapZone.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
     if (pulseRunning) {
       pausePulse();
     } else {
