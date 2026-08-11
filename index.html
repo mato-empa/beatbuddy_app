@@ -261,6 +261,10 @@
             <span class="slider-track"></span>
           </label>
         </div>
+        <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+          <button class="action" id="test-buzz-btn" style="height: 40px;">Test buzz</button>
+          <div id="buzz-test-status" style="font-size: 12px; color: var(--ink-muted);"></div>
+        </div>
       </div>
     </div>
   </header>
@@ -337,6 +341,18 @@
   flashToggle.addEventListener('change', () => { flashEnabled = flashToggle.checked; });
   buzzToggle.addEventListener('change', () => { buzzEnabled = buzzToggle.checked; });
   soundToggle.addEventListener('change', () => { soundEnabled = soundToggle.checked; });
+
+  const testBuzzBtn = document.getElementById('test-buzz-btn');
+  const buzzTestStatus = document.getElementById('buzz-test-status');
+  testBuzzBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!('vibrate' in navigator)) {
+      buzzTestStatus.textContent = 'navigator.vibrate is not available in this browser.';
+      return;
+    }
+    const result = navigator.vibrate(200);
+    buzzTestStatus.textContent = 'vibrate() exists, called it, returned: ' + result;
+  });
 
   const flashLayer = document.getElementById('flash-layer');
   const tapZone = document.getElementById('tap-zone');
